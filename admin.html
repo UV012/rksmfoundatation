@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Legal &amp; Registration Admin — Ram Kinkar Shahi Memorial Foundation</title>
+  <meta name="robots" content="noindex, nofollow"/>
+  <link rel="stylesheet" href="style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+  <div class="admin-shell">
+
+    <!-- LOGIN GATE -->
+    <div class="admin-login" id="loginBox">
+      <h2>Admin Login</h2>
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Admin username" autocomplete="username"/>
+      </div>
+      <div class="form-group">
+        <label for="pw">Password</label>
+        <input type="password" id="pw" placeholder="Enter password" autocomplete="current-password"/>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="attemptLogin()">Login</button>
+      <p class="form-note" id="loginError"></p>
+    </div>
+
+    <!-- ADMIN PANEL (hidden until login) -->
+    <div id="panel" style="display:none;">
+      <div class="admin-header">
+        <h1>Legal &amp; Registration — Admin</h1>
+        <div style="display:flex; gap:10px;">
+          <a href="index.html#legal" class="btn btn-ghost" style="color:var(--navy); border-color:var(--navy);">View Public Page</a>
+          <button class="btn btn-ghost" style="color:var(--navy); border-color:var(--navy);" onclick="logout()">Log Out</button>
+        </div>
+      </div>
+
+      <div class="admin-notice">
+        <strong>Note:</strong> Changes here are saved directly to the foundation's MSSQL database via the API — visible to all visitors immediately after you click "Save", and accessible from any device you log in from. Uploaded PDFs are stored on the server's <code>/uploads</code> folder.
+      </div>
+
+      <div id="cardsContainer"></div>
+
+      <div class="admin-save-bar">
+        <span class="admin-saved-msg" id="savedMsg"></span>
+        <button class="btn btn-primary" onclick="saveAll()">Save All Changes</button>
+      </div>
+
+      <!-- GALLERY MANAGEMENT -->
+      <div class="admin-card">
+        <h2>📷 Gallery</h2>
+        <div class="admin-file-row">
+          <input type="file" accept="image/jpeg,image/png,image/webp" id="galleryFileInput"/>
+          <input type="text" id="galleryCaptionInput" placeholder="Caption (optional)" style="flex:1; min-width:180px; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius-sm);"/>
+          <button type="button" class="btn btn-primary" onclick="addGalleryImage()" style="padding:10px 20px;font-size:0.78rem;">Add Photo</button>
+        </div>
+        <div id="galleryAdminGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(160px,1fr)); gap:14px; margin-top:10px;"></div>
+      </div>
+
+      <!-- ADVISORY COUNCIL / VOLUNTEERS / BRAND AMBASSADORS -->
+      <div class="admin-card">
+        <h2>🧑‍🤝‍🧑 Advisory Council / Volunteers / Brand Ambassadors</h2>
+        <div class="admin-row">
+          <div class="form-group">
+            <label>Category</label>
+            <select id="personCategory" style="width:100%; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius-sm);">
+              <option value="advisory_council">Advisory Council</option>
+              <option value="volunteer">Volunteer</option>
+              <option value="brand_ambassador">Brand Ambassador</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="personName" placeholder="Full name"/>
+          </div>
+        </div>
+        <div class="admin-row">
+          <div class="form-group">
+            <label>Role / Designation</label>
+            <input type="text" id="personRole" placeholder="e.g. Education Advisor"/>
+          </div>
+          <div class="form-group">
+            <label>Photo (optional)</label>
+            <input type="file" id="personPhotoInput" accept="image/jpeg,image/png,image/webp"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Short Bio (optional)</label>
+          <textarea id="personBio" rows="2"></textarea>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="addPerson()">Add Member</button>
+
+        <div id="peopleAdminList" style="margin-top:24px;"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="legal-api.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
