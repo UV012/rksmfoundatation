@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Legal & Registration API backend for Ram Kinkar Shahi Memorial Foundation",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js",
     "create-admin": "node create-admin.js"

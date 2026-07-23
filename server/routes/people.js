@@ -1,17 +1,28 @@
-const express = require('express');
-const path = require('path');
-const fs = require('fs');
-const multer = require('multer');
-const { sql, getPool } = require('../db');
-const { requireAuth } = require('../middleware/auth');
+import express from "express";
+import path from "path";
+import fs from "fs";
+import multer from "multer";
+import { fileURLToPath } from "url";
+
+import { sql, getPool } from "../db.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
-const VALID_CATEGORIES = ['advisory_council', 'volunteer', 'brand_ambassador'];
+const VALID_CATEGORIES = [
+  "advisory_council",
+  "volunteer",
+  "brand_ambassador"
+];
 
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
+const UPLOAD_DIR = path.join(__dirname, "..", "uploads");
+
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
 const upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOAD_DIR),
@@ -183,4 +194,4 @@ router.delete('/admin/:id', requireAuth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

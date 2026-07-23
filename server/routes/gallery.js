@@ -1,28 +1,47 @@
-const express = require('express');
-const path = require('path');
-const fs = require('fs');
-const multer = require('multer');
-const { sql, getPool } = require('../db');
-const { requireAuth } = require('../middleware/auth');
+import express from "express";
+import path from "path";
+import fs from "fs";
+import multer from "multer";
+import { fileURLToPath } from "url";
+
+import { sql, getPool } from "../db.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// __dirname for ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const UPLOAD_DIR = path.join(__dirname, "..", "uploads");
+
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
 
 const upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+
     filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname) || '.jpg';
-      cb(null, `gallery-${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`);
+      const ext = path.extname(file.originalname) || ".jpg";
+      cb(
+        null,
+        `gallery-${Date.now()}-${Math.round(Math.random() * 1000000)}${ext}`
+      );
     }
   }),
-  limits: { fileSize: (parseInt(process.env.UPLOAD_MAX_MB || '5', 10)) * 1024 * 1024 },
+
+  limits: {
+    fileSize:
+      (parseInt(process.env.UPLOAD_MAX_MB || "5", 10)) * 1024 * 1024
+  },
+
   fileFilter: (req, file, cb) => {
     if (!/^image\/(jpeg|png|webp)$/.test(file.mimetype)) {
-      return cb(new Error('Only JPG, PNG, or WEBP images are allowed.'));
+      return cb(new Error("Only JPG, PNG, or WEBP images are allowed."));
     }
+
     cb(null, true);
   }
 });
@@ -32,101 +51,223 @@ function mapRow(row) {
     id: row.Id,
     caption: row.Caption,
     fileName: row.FileName,
-    url: row.FilePath ? `/uploads/${path.basename(row.FilePath)}` : null,
+    url: row.FilePath
+      ? `/uploads/${path.basename(row.FilePath)}`
+      : null,
     sortOrder: row.SortOrder,
-    isPublic: !!row.IsPublic
+    isPublic: Boolean(row.IsPublic)
   };
 }
 
-// ---- PUBLIC: list public images ----
-router.get('/public', async (req, res) => {
+// ----------------------------------
+// PUBLIC : List Public Images
+// ----------------------------------
+
+router.get("/public", async (req, res) => {
   try {
     const pool = await getPool();
-    const result = await pool.request()
-      .query('SELECT * FROM GalleryImages WHERE IsPublic = 1 ORDER BY SortOrder ASC, CreatedAt DESC');
+
+    const result = await pool
+      .request()
+      .query(`
+        SELECT *
+        FROM GalleryImages
+        WHERE IsPublic = 1
+        ORDER BY SortOrder ASC, CreatedAt DESC
+      `);
+
     res.json(result.recordset.map(mapRow));
+
   } catch (err) {
-    console.error('Gallery public list error:', err);
-    res.status(500).json({ error: 'Could not load gallery.' });
+    console.error("Gallery Public List Error:", err);
+
+    res.status(500).json({
+      error: "Could not load gallery."
+    });
   }
 });
 
-// ---- ADMIN: list all images ----
-router.get('/admin', requireAuth, async (req, res) => {
+// ----------------------------------
+// ADMIN : List All Images
+// ----------------------------------
+
+router.get("/admin", requireAuth, async (req, res) => {
   try {
     const pool = await getPool();
-    const result = await pool.request()
-      .query('SELECT * FROM GalleryImages ORDER BY SortOrder ASC, CreatedAt DESC');
+
+    const result = await pool
+      .request()
+      .query(`
+        SELECT *
+        FROM GalleryImages
+        ORDER BY SortOrder ASC, CreatedAt DESC
+      `);
+
     res.json(result.recordset.map(mapRow));
+
   } catch (err) {
-    console.error('Gallery admin list error:', err);
-    res.status(500).json({ error: 'Could not load gallery.' });
+    console.error("Gallery Admin List Error:", err);
+
+    res.status(500).json({
+      error: "Could not load gallery."
+    });
   }
 });
 
-// ---- ADMIN: upload a new image ----
-router.post('/admin', requireAuth, upload.single('image'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No image received.' });
-  const { caption, isPublic, sortOrder } = req.body || {};
+// ----------------------------------
+// ADMIN : Upload Image
+// ----------------------------------
 
-  try {
-    const pool = await getPool();
-    await pool.request()
-      .input('caption', sql.NVarChar, caption || null)
-      .input('fileName', sql.NVarChar, req.file.originalname)
-      .input('filePath', sql.NVarChar, req.file.filename)
-      .input('sortOrder', sql.Int, parseInt(sortOrder, 10) || 0)
-      .input('isPublic', sql.Bit, isPublic === 'false' ? 0 : 1)
-      .query(`INSERT INTO GalleryImages (Caption, FileName, FilePath, SortOrder, IsPublic)
-              VALUES (@caption, @fileName, @filePath, @sortOrder, @isPublic)`);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Gallery upload error:', err);
-    res.status(500).json({ error: 'Could not save image.' });
-  }
-});
+router.post(
+  "/admin",
+  requireAuth,
+  upload.single("image"),
+  async (req, res) => {
 
-// ---- ADMIN: update caption/visibility/order ----
-router.put('/admin/:id', requireAuth, async (req, res) => {
-  const { caption, isPublic, sortOrder } = req.body || {};
-  try {
-    const pool = await getPool();
-    const result = await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .input('caption', sql.NVarChar, caption || null)
-      .input('isPublic', sql.Bit, isPublic ? 1 : 0)
-      .input('sortOrder', sql.Int, parseInt(sortOrder, 10) || 0)
-      .query(`UPDATE GalleryImages SET Caption=@caption, IsPublic=@isPublic, SortOrder=@sortOrder WHERE Id=@id`);
-    if (result.rowsAffected[0] === 0) return res.status(404).json({ error: 'Image not found.' });
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Gallery update error:', err);
-    res.status(500).json({ error: 'Could not update image.' });
-  }
-});
-
-// ---- ADMIN: delete an image ----
-router.delete('/admin/:id', requireAuth, async (req, res) => {
-  try {
-    const pool = await getPool();
-    const existing = await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .query('SELECT FilePath FROM GalleryImages WHERE Id = @id');
-
-    const filePath = existing.recordset[0] && existing.recordset[0].FilePath;
-    if (filePath) {
-      const fullPath = path.join(UPLOAD_DIR, path.basename(filePath));
-      if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+    if (!req.file) {
+      return res.status(400).json({
+        error: "No image received."
+      });
     }
 
-    await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .query('DELETE FROM GalleryImages WHERE Id = @id');
-    res.json({ success: true });
+    const { caption, isPublic, sortOrder } = req.body || {};
+
+    try {
+      const pool = await getPool();
+
+      await pool
+        .request()
+        .input("caption", sql.NVarChar, caption || null)
+        .input("fileName", sql.NVarChar, req.file.originalname)
+        .input("filePath", sql.NVarChar, req.file.filename)
+        .input("sortOrder", sql.Int, parseInt(sortOrder, 10) || 0)
+        .input("isPublic", sql.Bit, isPublic === "false" ? 0 : 1)
+        .query(`
+          INSERT INTO GalleryImages
+          (Caption, FileName, FilePath, SortOrder, IsPublic)
+
+          VALUES
+          (@caption,@fileName,@filePath,@sortOrder,@isPublic)
+        `);
+
+      res.json({
+        success: true
+      });
+
+    } catch (err) {
+
+      console.error("Gallery Upload Error:", err);
+
+      res.status(500).json({
+        error: "Could not save image."
+      });
+    }
+  }
+);
+
+// ----------------------------------
+// ADMIN : Update Image
+// ----------------------------------
+
+router.put("/admin/:id", requireAuth, async (req, res) => {
+
+  const { caption, isPublic, sortOrder } = req.body || {};
+
+  try {
+
+    const pool = await getPool();
+
+    const result = await pool
+      .request()
+      .input("id", sql.Int, Number(req.params.id))
+      .input("caption", sql.NVarChar, caption || null)
+      .input("isPublic", sql.Bit, isPublic ? 1 : 0)
+      .input("sortOrder", sql.Int, parseInt(sortOrder, 10) || 0)
+      .query(`
+        UPDATE GalleryImages
+
+        SET
+          Caption=@caption,
+          IsPublic=@isPublic,
+          SortOrder=@sortOrder
+
+        WHERE Id=@id
+      `);
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({
+        error: "Image not found."
+      });
+    }
+
+    res.json({
+      success: true
+    });
+
   } catch (err) {
-    console.error('Gallery delete error:', err);
-    res.status(500).json({ error: 'Could not delete image.' });
+
+    console.error("Gallery Update Error:", err);
+
+    res.status(500).json({
+      error: "Could not update image."
+    });
   }
 });
 
-module.exports = router;
+// ----------------------------------
+// ADMIN : Delete Image
+// ----------------------------------
+
+router.delete("/admin/:id", requireAuth, async (req, res) => {
+
+  try {
+
+    const pool = await getPool();
+
+    const existing = await pool
+      .request()
+      .input("id", sql.Int, Number(req.params.id))
+      .query(`
+        SELECT FilePath
+        FROM GalleryImages
+        WHERE Id=@id
+      `);
+
+    const filePath = existing.recordset[0]?.FilePath;
+
+    if (filePath) {
+
+      const fullPath = path.join(
+        UPLOAD_DIR,
+        path.basename(filePath)
+      );
+
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+      }
+    }
+
+    await pool
+      .request()
+      .input("id", sql.Int, Number(req.params.id))
+      .query(`
+        DELETE
+        FROM GalleryImages
+        WHERE Id=@id
+      `);
+
+    res.json({
+      success: true
+    });
+
+  } catch (err) {
+
+    console.error("Gallery Delete Error:", err);
+
+    res.status(500).json({
+      error: "Could not delete image."
+    });
+  }
+});
+
+export default router;

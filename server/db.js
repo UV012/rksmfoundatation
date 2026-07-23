@@ -1,19 +1,22 @@
-// ============================================
-//  MSSQL connection pool (mssql package)
-// ============================================
-require('dotenv').config();
-const sql = require('mssql');
+import dotenv from "dotenv";
+dotenv.config();
+
+import sql from "mssql";
 
 const config = {
   server: process.env.DB_SERVER,
-  port: parseInt(process.env.DB_PORT || '1433', 10),
+  port: Number(process.env.DB_PORT || 1433),
   database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
+
   options: {
-    encrypt: process.env.DB_ENCRYPT === 'true',
-    trustServerCertificate: process.env.DB_TRUST_SERVER_CERT === 'true'
+    encrypt: process.env.DB_ENCRYPT === "true",
+    trustServerCertificate:
+      process.env.DB_TRUST_SERVER_CERT === "true",
+    enableArithAbort: true
   },
+
   pool: {
     max: 10,
     min: 0,
@@ -21,23 +24,21 @@ const config = {
   }
 };
 
-let poolPromise;
+let pool;
 
-function getPool() {
-  if (!poolPromise) {
-    poolPromise = new sql.ConnectionPool(config)
-      .connect()
-      .then(pool => {
-        console.log('Connected to MSSQL');
-        return pool;
-      })
-      .catch(err => {
-        poolPromise = null; // allow retry on next call
-        console.error('MSSQL connection failed:', err.message);
-        throw err;
-      });
+export async function getPool() {
+  try {
+    if (pool) return pool;
+
+    pool = await sql.connect(config);
+
+    console.log("✅ MSSQL Connected");
+
+    return pool;
+  } catch (err) {
+    console.error("❌ MSSQL Connection Error:", err.message);
+    throw err;
   }
-  return poolPromise;
 }
 
-module.exports = { sql, getPool };
+export { sql };
